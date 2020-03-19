@@ -1,21 +1,38 @@
+import numpy
 from time import sleep
 from redis import Redis
 from rq import Queue
-from redis_modules import print_as_function
+from redis_modules import cria_matriz, multiplica_linha_coluna
+import time
+import multiprocessing
 
 if __name__ == "__main__":
   print "Initializing redis master"
   redis_conn = Redis(host='127.0.0.1',port=6379)
   queue_jobs = Queue('my_queue', connection=redis_conn)
-  jobs = []
-  for i in range(10):
-    job = queue_jobs.enqueue(print_as_function, "realizando trabalho {0}".format(i))
-    jobs.append(job)
+  
+  linhas, colunas = 2, 2
 
-  for job in jobs:
-    print "Trabalhos enfileirados {0}".format(len(queue_jobs))
-    while job.result is None:
-      print "O trabalho {0} ainda nao foi concluido".format(job.id)
-      sleep(2)
-      print "Resultado {0}".format(job.result)
-    print job.result
+  matrizA = cria_matriz(linhas, colunas)
+  matrizB = cria_matriz(colunas, linhas)
+
+  matrizA = numpy.array(matrizA)
+  matrizB = numpy.array(matrizB)
+  matrizC = numpy.zeros(shape=(linhas, colunas))
+
+  jobs = []
+
+  for i in range(len(matrizA)):
+    jobLocal = []
+    for j in range(len(matrizA[0])):
+      job = queue_jobs.enqueue(multiplica_linha_coluna, matrizA[i], matrizB[:, j])
+      jobLocal.append(job)
+    jobs.append(jobLocal)
+
+  for i in range(len(matrizA)):
+    for j in range(len(matrizA[0])):
+      while jobs[i][j].result is None:
+        sleep(2)
+      matrizC[i][j] = jobs[i][j].result
+
+  print("resultado {}".format(matrizC))
